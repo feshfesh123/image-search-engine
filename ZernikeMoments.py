@@ -34,6 +34,5 @@ class ZernikeMoments:
 
 	def describe(self, image):
 		outline = self.preprocess(image)
-		cv2.imshow("", outline)
 		# return the Zernike moments for the image
 		return mahotas.features.zernike_moments(outline, self.radius)
