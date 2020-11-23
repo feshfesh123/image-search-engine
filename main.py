@@ -12,6 +12,8 @@ desc = RGBHistogram([8, 8, 8])
 test_image_path = '../data/flowers/image_0030.jpg'
 query_image = cv2.imread(test_image_path)
 query_feature = desc.describe(query_image)
+print(query_feature)
+quit()
 
 # load the index and initialize our searcher
 index = pickle.load(open("Histogram_only_index.cpickle", "rb"))
