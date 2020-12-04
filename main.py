@@ -6,18 +6,19 @@ import glob
 import pickle
 from Searcher import Searcher
 
-desc = RGBHistogram([8, 8, 8])
+# desc = RGBHistogram([8 8, 8])
+desc = RGBHistogram([4, 4, 4])
 
 
 test_image_path = '../data/flowers/image_0030.jpg'
 query_image = cv2.imread(test_image_path)
 query_feature = desc.describe(query_image)
-print(query_feature)
-quit()
+# print(query_feature)
+# quit()
 
 # load the index and initialize our searcher
-index = pickle.load(open("Histogram_only_index.cpickle", "rb"))
-# print(index.items())
+index = pickle.load(open("Histogram_only_index_4bins.cpickle", "rb"))
+print(index.items())
 searcher = Searcher(index)
 results = searcher.search(query_feature)
 print(results)
@@ -48,7 +49,7 @@ for imagePath in list_images:
 
 # we are now done indexing our image -- now we can write our
 # index to disk
-f = open("Histogram_only_index.cpickle", "wb")
+f = open("Histogram_only_index_4bins.cpickle", "wb")
 f.write(pickle.dumps(index))
 f.close()
 
