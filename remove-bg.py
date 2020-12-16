@@ -1,61 +1,40 @@
-import numpy as np
+
 import cv2
+import numpy as np
+import matplotlib.pyplot as plt
 
-test_image_path = '../data/flowers/image_0030.jpg'
-image_vec = cv2.imread(test_image_path, 1)
-g_blurred = cv2.GaussianBlur(image_vec, (5, 5), 0)
+# Load image
+query_path = "../data/flowers/image_1281.jpg"
 
-blurred_float = g_blurred.astype(np.float32) / 255.0
-edgeDetector = cv2.ximgproc.createStructuredEdgeDetection("model.yml")
-edges = edgeDetector.detectEdges(blurred_float) * 255.0
-cv2.imwrite('edge-raw.jpg', edges)
+img = cv2.imread(query_path)
 
-def SaltPepperNoise(edgeImg):
+# converting image into its hsv form
+hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
 
-    count = 0
-    lastMedian = edgeImg
-    median = cv2.medianBlur(edgeImg, 3)
-    while not np.array_equal(lastMedian, median):
-        zeroed = np.invert(np.logical_and(median, edgeImg))
-        edgeImg[zeroed] = 0
+h, s, v = cv2.split(hsv)
+fig = plt.figure()
+axis = fig.add_subplot(1, 1, 1, projection="3d")
 
-        count = count + 1
-        if count > 70:
-            break
-        lastMedian = median
-        median = cv2.medianBlur(edgeImg, 3)
+axis.scatter(h.flatten(), s.flatten(), v.flatten(), cmap='hsv', marker=".")
+axis.set_xlabel("Hue")
+axis.set_ylabel("Saturation")
+axis.set_zlabel("Value")
+plt.show()
 
-edges_ = np.asarray(edges, np.uint8)
-SaltPepperNoise(edges_)
-cv2.imshow('edge.jpg', edges_)
+# selecting the color range to be extracted
+lower_green = np.array([299.1367, 100.0000, 54.5098])  # lowest range
+upper_green = np.array([262.5000, 45.4976, 82.7451])  # highest range
 
 
-def findSignificantContour(edgeImg):
-    image, contours, hierarchy = cv2.findContours(
-        edgeImg,
-        cv2.RETR_TREE,
-        cv2.CHAIN_APPROX_SIMPLE
-    )
-        # Find level 1 contours
-    level1Meta = []
-    for contourIndex, tupl in enumerate(hierarchy[0]):
-        # Filter the ones without parent
-        if tupl[3] == -1:
-            tupl = np.insert(tupl.copy(), 0, [contourIndex])
-            level1Meta.append(tupl)
-# From among them, find the contours with large surface area.
-    contoursWithArea = []
-    for tupl in level1Meta:
-        contourIndex = tupl[0]
-        contour = contours[contourIndex]
-        area = cv2.contourArea(contour)
-        contoursWithArea.append([contour, area, contourIndex])
-    contoursWithArea.sort(key=lambda meta: meta[1], reverse=True)
-    largestContour = contoursWithArea[0][0]
-    return largestContour
+# creating mask for image segmentation
+# mask = cv2.inRange(hsv, lower_green, upper_green)
 
-contour = findSignificantContour(edges_)
-# Draw the contour on the original image
-contourImg = np.copy(image_vec)
-cv2.drawContours(contourImg, [contour], 0, (0, 255, 0), 2, cv2.LINE_AA, maxLevel=1)
-cv2.imshow('contour.jpg', contourImg)
+mask = cv2.inRange(hsv, upper_green, lower_green)
+
+
+# extracting the foreground from the image
+fg = cv2.bitwise_and(img, img, mask=mask)
+
+# saving the extracted image
+cv2.imshow('remove-bg', fg)
+cv2.waitKey()

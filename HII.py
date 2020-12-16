@@ -10,6 +10,9 @@ from Searcher import Searcher
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
+from keras.preprocessing import image
+from keras.applications.vgg16 import preprocess_input
+from keras.applications import VGG16
 
 # desc = RGBHistogram([8, 8, 8])
 desc = RGBHistogram([4, 4, 4])
@@ -29,8 +32,8 @@ for imagePath in list_images:
     k = imagePath[imagePath.rfind("/") + 1:]
     # load the image, describe it using our RGB histogram
     # descriptor, and update the index
-    image = cv2.imread(imagePath)
-    features = desc.describe(image)
+    img = cv2.imread(imagePath)
+    features = desc.describe(img)
     index[k] = [round(digit) for digit in features * 10e2]
     # index[k] = features
     # print(k, ":", index[k])
@@ -84,43 +87,6 @@ def combine_list(list_1, list_2):
     return combined_list
 
 
-def draw_chart():
-    x = []
-    y = []
-    # for feature in feature_value_id:
-    #     for value in feature_value_id[feature].keys():
-    #         x.append(feature)
-    #         y.append(value)
-    # # Basic chart
-    # df = pd.DataFrame({'feature': x, 'value': y})
-    # plt.plot('feature', 'value', data=df, linestyle='none', marker='o')
-    # plt.show()
-
-    df1 = {}
-    df1['x'] = [i for i in range(1, 65)]
-
-    for ih,histogram in enumerate(index.values()):
-        df1['y' + str(ih)] = histogram
-    df = pd.DataFrame(df1)
-    # style
-    plt.style.use('seaborn-darkgrid')
-
-    # create a color palette
-    palette = plt.get_cmap('Set1')
-
-    # multiple line plot
-    num = 0
-    for column in df.drop('x', axis=1):
-        num += 1
-        plt.plot(df['x'], df[column], marker='', color=palette(num), linewidth=1, alpha=0.9, label=column)
-
-    # Add legend
-    plt.legend(loc=2, ncol=2)
-    plt.xlabel("feature")
-    plt.ylabel("value")
-
-    plt.show()
-
 
 def chi2_distance(histA, histB, eps=1e-10):
     # compute the chi-squared distance
@@ -132,7 +98,7 @@ def chi2_distance(histA, histB, eps=1e-10):
 # draw_chart()
 # exit()
 
-query_path = "../data/flowers/image_0001.jpg"
+query_path = "../data/flowers/image_0103.jpg"
 query_image = cv2.imread(query_path)
 query_histogram = desc.describe(query_image)
 query_histogram = [round(digit) for digit in query_histogram * 10e2]
@@ -149,9 +115,12 @@ for feature, value in enumerate(query_histogram):
 
 print("result :", len(result_ids), ' /', i)
 
+
+# -------------------calculate distance-----------------
+
 for i in result_ids:
-    image = cv2.imread(list_images[i].replace('\\', '/'))
-    features = desc.describe(image)
+    img = cv2.imread(list_images[i].replace('\\', '/'))
+    features = desc.describe(img)
     histogram = [round(digit) for digit in features * 10e2]
     distance = chi2_distance(query_histogram, histogram)
     results.append({ 'index' :i, 'dist': distance})
@@ -160,11 +129,65 @@ results = sorted(results, key=lambda k: (k['dist']))
 
 print(results)
 
-for index in range(5):
+# for index in range(5):
+#     i = results[index]['index']
+#     list_images[i] = list_images[i].replace('\\', '/')
+#     print(list_images[i])
+#     image = cv2.imread(list_images[i])
+#     cv2.imshow(str(index), image)
+#     # image_path = "../data/flowers/image_" +  + ".jpg"
+# cv2.waitKey()
+
+#----------------------------------------------------------
+
+#---------------- VGG16 -----------------------------------
+print(result_ids)
+indexes = {}
+vgg = VGG16(
+    include_top=True,
+    weights='imagenet',
+    input_tensor=None,
+    input_shape=None,
+    pooling=None,
+    classes=1000)
+# use list_images to grab the image paths and loop over them
+for index in range(50):
     i = results[index]['index']
-    list_images[i] = list_images[i].replace('\\', '/')
-    print(list_images[i])
-    image = cv2.imread(list_images[i])
-    cv2.imshow(str(index), image)
-    # image_path = "../data/flowers/image_" +  + ".jpg"
-cv2.waitKey()
+    path = list_images[i].replace('\\', '/')
+    # extract our unique image ID (i.e. the filename)
+    # load the image, describe it using our RGB histogram
+    # descriptor, and update the index
+    img = image.load_img(path, target_size=(224, 224))
+    img_data = image.img_to_array(img)
+    img_data = np.expand_dims(img_data, axis=0)
+    img_data = preprocess_input(img_data)
+    features = vgg.predict(img_data)[0]
+    indexes[path] = features
+
+
+#query test
+query_path = "../data/flowers/image_0103.jpg"
+query_img = image.load_img(query_path, target_size=(224, 224))
+query_data = image.img_to_array(query_img)
+query_data = np.expand_dims(query_data, axis=0)
+query_data = preprocess_input(query_data)
+query_features = vgg.predict(query_data)[0]
+
+#distance
+results = []
+for i in indexes:
+
+    distance = chi2_distance(indexes[i], query_features)
+    results.append({ 'index' :i, 'dist': distance})
+
+results = sorted(results, key=lambda k: (k['dist']))
+
+for index, i in enumerate(results):
+    if index == 5:
+        break
+    print(i)
+    img = cv2.imread(i['index'])
+    cv2.imshow("", img)
+    cv2.waitKey()
+
+#---------------------------------------------------------
